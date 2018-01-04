@@ -203,6 +203,7 @@ class OpenIDConnectClient
 
         if (isset($_SESSION['openid_connect_id_token'])) $this->idToken = $_SESSION['openid_connect_id_token'];
         if (isset($_SESSION['openid_connect_access_token'])) $this->accessToken = $_SESSION['openid_connect_access_token'];
+        if (isset($_SESSION['openid_connect_refresh_token'])) $this->refreshToken = $_SESSION['openid_connect_refresh_token'];
     }
 
     /**
@@ -289,7 +290,10 @@ class OpenIDConnectClient
                 $_SESSION['openid_connect_access_token'] = $this->accessToken;
 
                 // Save the refresh token, if we got one
-                if (isset($token_json->refresh_token)) $this->refreshToken = $token_json->refresh_token;
+                if (isset($token_json->refresh_token)) {
+                    $this->refreshToken = $token_json->refresh_token;
+                    $_SESSION['openid_connect_refresh_token'] = $this->refreshToken;
+                }
 
                 // Success!
                 return true;
@@ -332,6 +336,7 @@ class OpenIDConnectClient
 
         unset($_SESSION['openid_connect_id_token']);
         unset($_SESSION['openid_connect_access_token']);
+        unset($_SESSION['openid_connect_refresh_token']);
 
         $signout_endpoint  .= (strpos($signout_endpoint, '?') === false ? '?' : '&') . http_build_query( $signout_params, null, '&');
         $this->redirect($signout_endpoint);
@@ -612,9 +617,35 @@ class OpenIDConnectClient
         $token_params = http_build_query($token_params, null, '&');
 
         $json = json_decode($this->fetchURL($token_endpoint, $token_params));
-        $this->refreshToken = $json->refresh_token;
 
         return $json;
+    }
+
+    public function refreshTokens() {
+        $token_json = $this->refreshToken($this->getRefreshToken());
+
+        if (isset($token_json->error)) {
+            unset($_SESSION['openid_connect_id_token']);
+            unset($_SESSION['openid_connect_access_token']);
+            unset($_SESSION['openid_connect_refresh_token']);
+            return false;
+        }
+
+        // Save the id token
+        $this->idToken = $token_json->id_token;
+        $_SESSION['openid_connect_id_token'] = $this->idToken;
+
+        // Save the access token
+        $this->accessToken = $token_json->access_token;
+        $_SESSION['openid_connect_access_token'] = $this->accessToken;
+
+        // Save the refresh token, if we got one
+        if (isset($token_json->refresh_token)) {
+            $this->refreshToken = $token_json->refresh_token;
+            $_SESSION['openid_connect_refresh_token'] = $this->refreshToken;
+        }
+
+        return true;
     }
 
     /**
