@@ -200,6 +200,9 @@ class OpenIDConnectClient
         $this->setProviderURL($provider_url);
         $this->clientID = $client_id;
         $this->clientSecret = $client_secret;
+
+        if ($_SESSION['openid_connect_id_token']) $this->idToken = ($_SESSION['openid_connect_id_token']);
+        if ($_SESSION['openid_connect_access_token']) $this->accessToken = ($_SESSION['openid_connect_access_token']);
     }
 
     /**
@@ -279,9 +282,11 @@ class OpenIDConnectClient
 
                 // Save the id token
                 $this->idToken = $token_json->id_token;
+                $_SESSION['openid_connect_id_token'] = $this->idToken;
 
                 // Save the access token
                 $this->accessToken = $token_json->access_token;
+                $_SESSION['openid_connect_access_token'] = $this->accessToken;
 
                 // Save the refresh token, if we got one
                 if (isset($token_json->refresh_token)) $this->refreshToken = $token_json->refresh_token;
@@ -324,6 +329,9 @@ class OpenIDConnectClient
                 'id_token_hint' => $accessToken,
                 'post_logout_redirect_uri' => $redirect);
         }
+
+        unset($_SESSION['openid_connect_id_token']);
+        unset($_SESSION['openid_connect_access_token']);
 
         $signout_endpoint  .= (strpos($signout_endpoint, '?') === false ? '?' : '&') . http_build_query( $signout_params, null, '&');
         $this->redirect($signout_endpoint);
@@ -515,7 +523,7 @@ class OpenIDConnectClient
  /**
      * Requests a resource owner token
      * (Defined in https://tools.ietf.org/html/rfc6749#section-4.3)
-     * 
+     *
      * @param $bClientAuth boolean Indicates that the Client ID and Secret be used for client authentication
      */
     public function requestResourceOwnerToken($bClientAuth =  FALSE) {
@@ -670,7 +678,7 @@ class OpenIDConnectClient
 	}
         return $rsa->verify($payload, $signature);
     }
-	
+
     /**
      * @param string $hashtype
      * @param object $key
@@ -722,7 +730,7 @@ class OpenIDConnectClient
         case 'HS384':
             $hashtype = 'SHA' . substr($header->alg, 2);
             $verified = $this->verifyHMACJWTsignature($hashtype, $this->getClientSecret(), $payload, $signature);
-            break;		
+            break;
         default:
             throw new OpenIDConnectClientException('No support for signature type: ' . $header->alg);
         }
@@ -1242,7 +1250,7 @@ class OpenIDConnectClient
     {
         return $this->timeOut;
     }
-	
+
     /**
      * Safely calculate length of binary string
      * @param string
